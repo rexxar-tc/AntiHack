@@ -4,6 +4,7 @@ using System.Timers;
 using AntiHack.Settings;
 using Sandbox;
 using Sandbox.Engine.Multiplayer;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using SEModAPIExtensions.API;
 using SEModAPIInternal.API.Common;
@@ -53,7 +54,19 @@ namespace AntiHack.NetworkHandlers
 
             if (PlayerManager.Instance.IsUserAdmin(remoteUserId) || PlayerManager.Instance.IsUserPromoted(remoteUserId) || PluginSettings.Instance.AllowedPlayers.Contains(remoteUserId))
                 return false;
-            
+
+            long entityId = 0;
+
+            base.Serialize(site.MethodInfo, stream, ref entityId);
+
+            MyCubeGrid grid = null;
+            if (!MyEntities.TryGetEntityById(entityId, out grid))
+            {
+                //entities other than MyCubeGrid can send this event
+                //we only care about grids
+                return false;
+            }
+
             string playername = PlayerMap.Instance.GetFastPlayerNameFromSteamId(remoteUserId);
 
             AntiHack.Log.Warn($"Player {playername}:{remoteUserId} attempted to delete a grid without admin rights!");
