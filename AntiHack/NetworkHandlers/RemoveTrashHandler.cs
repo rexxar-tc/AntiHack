@@ -5,6 +5,7 @@ using AntiHack.Settings;
 using Sandbox;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
 using SEModAPIExtensions.API;
 using SEModAPIInternal.API.Common;
 using SEModAPIInternal.API.Server;
@@ -15,7 +16,7 @@ namespace AntiHack.NetworkHandlers
 {
     public class RemoveTrashHandler : NetworkHandlerBase
     {
-        private readonly Timer _kickTimer = new Timer(30000);
+        private readonly Timer _kickTimer = new Timer(10000);
         private bool? _unitTestResult;
 
         public override bool CanHandle(CallSite site)
@@ -49,7 +50,7 @@ namespace AntiHack.NetworkHandlers
             if (!PluginSettings.Instance.PluginEnabled)
                 return false;
 
-            if (PlayerManager.Instance.IsUserAdmin(remoteUserId) || PluginSettings.Instance.AllowedPlayers.Contains(remoteUserId))
+            if (PlayerManager.Instance.IsUserAdmin(remoteUserId) || PlayerManager.Instance.IsUserPromoted(remoteUserId) || PluginSettings.Instance.AllowedPlayers.Contains(remoteUserId))
                 return false;
 
             string playername = PlayerMap.Instance.GetFastPlayerNameFromSteamId(remoteUserId);
@@ -57,13 +58,14 @@ namespace AntiHack.NetworkHandlers
             AntiHack.Log.Warn($"Player {playername}:{remoteUserId} attempted to remove trash without admin rights!");
 
             if (!string.IsNullOrEmpty(PluginSettings.Instance.PulicMessage))
-                ChatManager.Instance.SendPublicChatMessage(PluginSettings.Instance.PulicMessage.Replace("%player%", playername));
+                MySandboxGame.Static.Invoke(() => MyAPIGateway.Utilities.SendMessage(PluginSettings.Instance.PulicMessage.Replace("%player%", playername)));
+                //ChatManager.Instance.SendPublicChatMessage(PluginSettings.Instance.PulicMessage.Replace("%player%", playername));
 
             if (PluginSettings.Instance.AutoBan)
             {
                 _kickTimer.Elapsed += (sender, args) =>
                                       {
-                                          MySandboxGame.Static.Invoke(() => MyMultiplayer.Static.BanClient(remoteUserId, true));
+                                          MyMultiplayer.Static.BanClient(remoteUserId, true);
                                           AntiHack.Log.Warn($"Banned player {playername}:{remoteUserId}");
                                       };
                 _kickTimer.AutoReset = false;
@@ -73,7 +75,7 @@ namespace AntiHack.NetworkHandlers
             {
                 _kickTimer.Elapsed += (sender, args) =>
                                       {
-                                          MySandboxGame.Static.Invoke(() => MyMultiplayer.Static.KickClient(remoteUserId));
+                                          MyMultiplayer.Static.KickClient(remoteUserId);
                                           AntiHack.Log.Warn($"Kicked player {playername}:{remoteUserId}");
                                       };
                 _kickTimer.AutoReset = false;

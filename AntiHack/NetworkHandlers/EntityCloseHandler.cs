@@ -4,6 +4,7 @@ using System.Timers;
 using AntiHack.Settings;
 using Sandbox;
 using Sandbox.Engine.Multiplayer;
+using Sandbox.ModAPI;
 using SEModAPIExtensions.API;
 using SEModAPIInternal.API.Common;
 using SEModAPIInternal.API.Server;
@@ -16,7 +17,7 @@ namespace AntiHack.NetworkHandlers
     {
         private static bool? _unitTestResult;
 
-        private readonly Timer _kickTimer = new Timer(30000);
+        private readonly Timer _kickTimer = new Timer(10000);
 
         public override bool CanHandle(CallSite site)
         {
@@ -50,21 +51,22 @@ namespace AntiHack.NetworkHandlers
             if (!PluginSettings.Instance.PluginEnabled)
                 return false;
 
-            if (PlayerManager.Instance.IsUserAdmin(remoteUserId) || PluginSettings.Instance.AllowedPlayers.Contains(remoteUserId))
+            if (PlayerManager.Instance.IsUserAdmin(remoteUserId) || PlayerManager.Instance.IsUserPromoted(remoteUserId) || PluginSettings.Instance.AllowedPlayers.Contains(remoteUserId))
                 return false;
-
+            
             string playername = PlayerMap.Instance.GetFastPlayerNameFromSteamId(remoteUserId);
 
             AntiHack.Log.Warn($"Player {playername}:{remoteUserId} attempted to delete a grid without admin rights!");
 
             if (!string.IsNullOrEmpty(PluginSettings.Instance.PulicMessage))
-                ChatManager.Instance.SendPublicChatMessage(PluginSettings.Instance.PulicMessage.Replace("%player%", playername));
+                MySandboxGame.Static.Invoke(() => MyAPIGateway.Utilities.SendMessage(PluginSettings.Instance.PulicMessage.Replace("%player%", playername)));
+                //ChatManager.Instance.SendPublicChatMessage(PluginSettings.Instance.PulicMessage.Replace("%player%", playername));
 
             if (PluginSettings.Instance.AutoBan)
             {
                 _kickTimer.Elapsed += (sender, args) =>
                                       {
-                                          MySandboxGame.Static.Invoke(() => MyMultiplayer.Static.BanClient(remoteUserId, true));
+                                          MyMultiplayer.Static.BanClient(remoteUserId, true);
                                           AntiHack.Log.Warn($"Banned player {playername}:{remoteUserId}");
                                       };
                 _kickTimer.AutoReset = false;
